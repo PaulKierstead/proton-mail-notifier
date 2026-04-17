@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.pkierstead.proton-watcher</string>
+
+    <!-- Wrapper script sources ~/.config/proton-watcher/env before exec-ing
+         the venv python. This keeps secrets out of the plist. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-lc</string>
+        <string>exec "$HOME/opt/proton-watcher/run.sh"</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+        <key>Crashed</key>
+        <true/>
+    </dict>
+
+    <!-- launchd throttles restarts by default; bump to be a bit more tolerant
+         of transient Bridge/Ollama startup races at login. -->
+    <key>ThrottleInterval</key>
+    <integer>15</integer>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/proton-watcher.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/proton-watcher.err.log</string>
+
+    <!-- Ensure the ProcessType is interactive so it runs at full speed and
+         network is awake. -->
+    <key>ProcessType</key>
+    <string>Interactive</string>
+</dict>
+</plist>

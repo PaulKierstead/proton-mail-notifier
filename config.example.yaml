@@ -1,0 +1,76 @@
+# proton-watcher config
+# Copy to ~/.config/proton-watcher/config.yaml and edit.
+#
+# Secrets are NOT stored in this file. Set them as environment variables:
+#   BRIDGE_PASSWORD       - the bridge-generated IMAP password (NOT your Proton password)
+#   PUSHOVER_USER_KEY     - your Pushover user key (30-char)
+#   PUSHOVER_API_TOKEN    - the application/API token you create in Pushover
+#
+# On macOS under launchd, set them via the plist's EnvironmentVariables block
+# or a wrapper script that sources ~/.config/proton-watcher/env.
+
+imap:
+  host: 127.0.0.1
+  port: 1143           # default Proton Mail Bridge IMAP port
+  starttls: true       # Bridge requires STARTTLS on 1143
+  username: paul@example.com   # the address the Bridge shows in its UI
+  mailboxes:
+    - INBOX
+    # - "Folders/Work"    # quote any folder name containing slashes/spaces
+  idle_refresh_seconds: 540   # < 29 min per RFC 2177
+  ssl_verify: false           # Bridge uses a self-signed cert; set true only if you've installed its CA
+
+ollama:
+  base_url: http://home.server.lan:11434
+  model: gpt-oss:20b          # any local Ollama model; see README for picks
+  timeout_seconds: 45
+  body_char_limit: 4000       # truncate long bodies before sending to the model
+
+pushover:
+  device: null                # e.g. "iphone"; null => all your devices
+  emergency_retry: 60         # seconds between alert repeats (min 30 per API)
+  emergency_expire: 1800      # stop retrying after 30 min (max 10800)
+  min_urgency: 7              # 1-10; only page when verdict.urgency >= this
+  sound: persistent           # Pushover sound name
+
+# Pattern DSL: each pattern has a stable `name` and a natural-language
+# `description` the LLM uses as the matching criterion. Edit freely.
+#
+# Optional: `min_urgency` per pattern overrides the global pushover.min_urgency
+# for that pattern. Useful when any match on a pattern should always page you
+# regardless of the model's urgency score (set to 1).
+patterns:
+  - name: boss_urgent
+    description: >
+      Direct email from my manager or a VP at my company asking me to do
+      something today, or asking a question they need answered today.
+      The sender's address is typically "@ddgumgum.com". Not urgent if it's
+      an FYI, CC'd thread, or newsletter.
+
+  - name: production_incident
+    description: >
+      Alerts from PagerDuty, Datadog, Grafana, Sentry, AWS, GCP, or internal
+      monitoring indicating a production outage, P0/P1 incident, SEV1/SEV2,
+      or service down. Urgent even without explicit "urgent" wording.
+
+  - name: account_security
+    description: >
+      Security alerts from identity providers, banks, or cloud providers
+      about suspicious sign-ins, unusual transactions, 2FA/MFA challenges I
+      didn't initiate, or password resets I didn't request. Exclude routine
+      "you signed in from a new device" notices from devices I own.
+
+  - name: same_day_deadline
+    description: >
+      Any email where the body explicitly calls out a response or action
+      required today, within a few hours, or "ASAP" from a real human
+      (not automated reminders, not marketing "last chance" emails).
+
+  # Add your own. The name is a stable key you'll see in the push title.
+  # - name: family
+  #   description: >
+  #     Email from a family member (sender address matches @example.net)
+  #     that is not forwarded marketing or a shared calendar update.
+
+state_db: ~/.local/state/proton-watcher/state.sqlite3
+log_level: INFO
