@@ -105,9 +105,33 @@ class Config:
         return val
 
     @classmethod
-    def load(cls, path: Path) -> "Config":
+    def load(cls, path: Path, rules_path: Path | None = None) -> "Config":
+        """Load config from `path`. If `rules_path` is given, patterns come from
+        that file instead of the `patterns:` block in the main config. This lets
+        connectivity config and the rules DSL live in separate ConfigMaps in k8s.
+        """
         with path.open("r") as fh:
             raw = yaml.safe_load(fh)
+
+        if rules_path is not None:
+            with rules_path.open("r") as fh:
+                rules_raw = yaml.safe_load(fh) or {}
+            patterns_raw = rules_raw.get("patterns")
+            if not patterns_raw:
+                raise SystemExit(f"No 'patterns:' found in rules file: {rules_path}")
+        else:
+            patterns_raw = raw.get("patterns")
+            if not patterns_raw:
+                raise SystemExit(
+                    "No patterns configured. Add a 'patterns:' block to the config "
+                    "or pass --rules pointing at a separate rules file."
+                )
+
+        # STATE_DB env var overrides the config value — handy for containers
+        # where the path is dictated by the PVC mount, not the baked config.
+        state_db_raw = os.environ.get("STATE_DB") or raw.get(
+            "state_db", "~/.local/state/proton-watcher/state.sqlite3"
+        )
 
         imap = raw["imap"]
         ollama = raw["ollama"]
@@ -145,9 +169,9 @@ class Config:
                     description=p["description"],
                     min_urgency=int(p["min_urgency"]) if "min_urgency" in p else None,
                 )
-                for p in raw["patterns"]
+                for p in patterns_raw
             ],
-            state_db=Path(os.path.expanduser(raw.get("state_db", "~/.local/state/proton-watcher/state.sqlite3"))),
+            state_db=Path(os.path.expanduser(state_db_raw)),
             log_level=raw.get("log_level", "INFO").upper(),
         )
 
@@ -601,15 +625,30 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--config",
         type=Path,
-        default=Path(os.path.expanduser("~/.config/proton-watcher/config.yaml")),
-        help="Path to YAML config",
+        default=Path(os.path.expanduser(
+            os.environ.get("PROTON_WATCHER_CONFIG", "~/.config/proton-watcher/config.yaml")
+        )),
+        help="Path to main YAML config (connectivity, pushover, storage). "
+             "Defaults to $PROTON_WATCHER_CONFIG or ~/.config/proton-watcher/config.yaml.",
+    )
+    parser.add_argument(
+        "--rules",
+        type=Path,
+        default=(
+            Path(os.path.expanduser(os.environ["PROTON_WATCHER_RULES"]))
+            if os.environ.get("PROTON_WATCHER_RULES")
+            else None
+        ),
+        help="Optional separate YAML file containing just a 'patterns:' list. "
+             "Defaults to $PROTON_WATCHER_RULES if set; otherwise patterns are "
+             "read from the main config.",
     )
     parser.add_argument("--test-pushover", action="store_true", help="Send a test emergency page and exit")
     parser.add_argument("--test-ollama", action="store_true", help="Run classifier on a canned message and exit")
     args = parser.parse_args(argv)
 
     _load_env_file()
-    cfg = Config.load(args.config)
+    cfg = Config.load(args.config, rules_path=args.rules)
     _setup_logging(cfg.log_level)
     LOG.info("Loaded config: mailboxes=%s model=%s patterns=%d", cfg.imap.mailboxes, cfg.ollama.model, len(cfg.patterns))
 

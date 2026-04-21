@@ -1,13 +1,20 @@
-# proton-watcher config
+# proton-watcher main config (connectivity + storage + pushover defaults).
 # Copy to ~/.config/proton-watcher/config.yaml and edit.
 #
-# Secrets are NOT stored in this file. Set them as environment variables:
+# Pattern rules live in a SEPARATE file by convention; see rules.example.yaml.
+# Point the daemon at it with --rules /path/to/rules.yaml or the env var
+# PROTON_WATCHER_RULES. Patterns may still be inlined in this file under a
+# top-level `patterns:` key if you prefer a single file — the rules file
+# wins when both are present.
+#
+# Secrets are NEVER stored in YAML. Set them as environment variables:
 #   BRIDGE_PASSWORD       - the bridge-generated IMAP password (NOT your Proton password)
 #   PUSHOVER_USER_KEY     - your Pushover user key (30-char)
 #   PUSHOVER_API_TOKEN    - the application/API token you create in Pushover
 #
 # On macOS under launchd, set them via the plist's EnvironmentVariables block
 # or a wrapper script that sources ~/.config/proton-watcher/env.
+# In Docker/Kubernetes, inject them via `--env`, envFrom a Secret, etc.
 
 imap:
   host: 127.0.0.1
@@ -33,44 +40,8 @@ pushover:
   min_urgency: 7              # 1-10; only page when verdict.urgency >= this
   sound: persistent           # Pushover sound name
 
-# Pattern DSL: each pattern has a stable `name` and a natural-language
-# `description` the LLM uses as the matching criterion. Edit freely.
-#
-# Optional: `min_urgency` per pattern overrides the global pushover.min_urgency
-# for that pattern. Useful when any match on a pattern should always page you
-# regardless of the model's urgency score (set to 1).
-patterns:
-  - name: boss_urgent
-    description: >
-      Direct email from my manager or a VP at my company asking me to do
-      something today, or asking a question they need answered today.
-      The sender's address is typically "@ddgumgum.com". Not urgent if it's
-      an FYI, CC'd thread, or newsletter.
-
-  - name: production_incident
-    description: >
-      Alerts from PagerDuty, Datadog, Grafana, Sentry, AWS, GCP, or internal
-      monitoring indicating a production outage, P0/P1 incident, SEV1/SEV2,
-      or service down. Urgent even without explicit "urgent" wording.
-
-  - name: account_security
-    description: >
-      Security alerts from identity providers, banks, or cloud providers
-      about suspicious sign-ins, unusual transactions, 2FA/MFA challenges I
-      didn't initiate, or password resets I didn't request. Exclude routine
-      "you signed in from a new device" notices from devices I own.
-
-  - name: same_day_deadline
-    description: >
-      Any email where the body explicitly calls out a response or action
-      required today, within a few hours, or "ASAP" from a real human
-      (not automated reminders, not marketing "last chance" emails).
-
-  # Add your own. The name is a stable key you'll see in the push title.
-  # - name: family
-  #   description: >
-  #     Email from a family member (sender address matches @example.net)
-  #     that is not forwarded marketing or a shared calendar update.
-
+# SQLite file remembering which UIDs we've already classified. Overridable at
+# runtime with the STATE_DB env var — useful for mounting a PVC in Kubernetes
+# without having to rewrite this file per deployment.
 state_db: ~/.local/state/proton-watcher/state.sqlite3
 log_level: INFO

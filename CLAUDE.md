@@ -22,15 +22,22 @@ Nothing leaves the machine except the outbound Pushover HTTPS call.
 - `watcher.py` — single-file daemon. Config dataclasses, `SeenStore`
   (SQLite), `classify()` (Ollama), `page_pushover()`, `parse_rfc822()`, and
   `MailboxWorker` (one thread per mailbox, IDLE loop).
-- `config.example.yaml` — canonical config shape; real config lives at
-  `~/.config/proton-watcher/config.yaml`.
+- `config.example.yaml` — canonical shape of the main (connectivity + storage
+  + pushover) config; real config lives at `~/.config/proton-watcher/config.yaml`.
+- `rules.example.yaml` — canonical shape of the pattern DSL; real rules live
+  at `~/.config/proton-watcher/rules.yaml`. Split out so k8s ConfigMaps can
+  update rules without touching connectivity.
 - `env.example` — shape of `~/.config/proton-watcher/env`. Never commit real
   secrets.
 - `run.sh` — launchd-invoked wrapper; sources env and activates the venv.
 - `com.pkierstead.proton-watcher.plist` — launchd agent definition.
+- `Dockerfile` / `.dockerignore` — container image. Expects
+  `/config/config.yaml`, `/config/rules.yaml`, and a writable `/data/` for the
+  SQLite state (env vars `PROTON_WATCHER_CONFIG`, `PROTON_WATCHER_RULES`,
+  `STATE_DB` are baked into the image).
 - `requirements.txt` — `imapclient`, `requests`, `PyYAML`. Keep this short;
   resist adding deps.
-- `README.md` — human install/run guide.
+- `README.md` — human install/run guide (macOS + Docker + Kubernetes).
 
 ## Invariants — do not break
 
@@ -84,6 +91,7 @@ tail -f /tmp/proton-watcher.out.log /tmp/proton-watcher.err.log
 
 - `python -m py_compile watcher.py`
 - `python -c "import yaml; yaml.safe_load(open('config.example.yaml'))"`
+- `python -c "import yaml; yaml.safe_load(open('rules.example.yaml'))"`
 - `bash -n run.sh`
 - `python -c "import xml.etree.ElementTree as ET; ET.parse('com.pkierstead.proton-watcher.plist')"`
 - If touching the classifier or prompt: run `--test-ollama` and eyeball the JSON.

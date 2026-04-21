@@ -1,0 +1,14 @@
+.git
+.gitignore
+.venv
+venv
+__pycache__
+*.pyc
+*.pyo
+*.sqlite3
+.env
+env
+README.md
+CLAUDE.md
+com.pkierstead.proton-watcher.plist
+run.sh

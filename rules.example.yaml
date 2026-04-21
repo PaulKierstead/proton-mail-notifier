@@ -1,0 +1,45 @@
+# proton-watcher pattern rules.
+# Copy to ~/.config/proton-watcher/rules.yaml (or mount as a ConfigMap)
+# and edit. Point the daemon at it with --rules or $PROTON_WATCHER_RULES.
+#
+# Each pattern has a stable `name` (shown in the push title) and a natural-
+# language `description` that the LLM uses as the matching criterion. Write
+# the description the way you'd brief a new assistant: who counts, what does
+# NOT count, and any domain-specific cues.
+#
+# Optional: `min_urgency` per pattern overrides the global pushover.min_urgency
+# for that pattern. Useful when any match on a pattern should always page you
+# regardless of the model's urgency score (set to 1).
+
+patterns:
+  - name: boss_urgent
+    description: >
+      Direct email from my manager or a VP at my company asking me to do
+      something today, or asking a question they need answered today.
+      The sender's address is typically "@ddgumgum.com". Not urgent if it's
+      an FYI, CC'd thread, or newsletter.
+
+  - name: production_incident
+    description: >
+      Alerts from PagerDuty, Datadog, Grafana, Sentry, AWS, GCP, or internal
+      monitoring indicating a production outage, P0/P1 incident, SEV1/SEV2,
+      or service down. Urgent even without explicit "urgent" wording.
+
+  - name: account_security
+    description: >
+      Security alerts from identity providers, banks, or cloud providers
+      about suspicious sign-ins, unusual transactions, 2FA/MFA challenges I
+      didn't initiate, or password resets I didn't request. Exclude routine
+      "you signed in from a new device" notices from devices I own.
+
+  - name: same_day_deadline
+    description: >
+      Any email where the body explicitly calls out a response or action
+      required today, within a few hours, or "ASAP" from a real human
+      (not automated reminders, not marketing "last chance" emails).
+
+  # Add your own. The name is a stable key you'll see in the push title.
+  # - name: family
+  #   description: >
+  #     Email from a family member (sender address matches @example.net)
+  #     that is not forwarded marketing or a shared calendar update.
